@@ -2,48 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	// inicia
-	 <!-- NUEVOS PERMISOS BLUETOOTH PARA iOS -->
-    <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>Esta aplicación utiliza Bluetooth para conectarse al glucómetro y realizar mediciones de glucosa</string>
-    
-    <key>NSBluetoothPeripheralUsageDescription</key>
-    <string>Esta aplicación necesita acceso a Bluetooth para comunicarse con el dispositivo glucómetro</string>
-    
-    <!-- Para iOS 13+ -->
-    <key>NSBluetoothUsageDescription</key>
-    <string>Esta aplicación utiliza Bluetooth para conectarse con dispositivos médicos de glucosa</string>
-    
-    <!-- Configuración adicional -->
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>bluetooth-central</string>
-    </array>
-    
-    <!-- Configuración de nombre de app -->
-    <key>CFBundleDisplayName</key>
-    <string>Glucómetro</string>
-    
-    <key>CFBundleName</key>
-    <string>Glucómetro</string>
-    
-    <!-- Configuración de orientación -->
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-    </array>
-    
-    <key>UISupportedInterfaceOrientations~ipad</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
-    </array>
-	// termina
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>App Glucometro</string>
+	<string>Glucómetro</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -51,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>app_glucometro</string>
+	<string>Glucómetro</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -69,19 +31,26 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Esta aplicación utiliza Bluetooth para conectarse al glucómetro y realizar mediciones de glucosa</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Esta aplicación necesita acceso a Bluetooth para comunicarse con dispositivos médicos de glucosa</string>
+	<key>NSBluetoothUsageDescription</key>
+	<string>Esta aplicación utiliza Bluetooth para conectarse con dispositivos médicos</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+	</array>
 </dict>
 </plist>
