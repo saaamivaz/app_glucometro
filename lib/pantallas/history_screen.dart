@@ -235,45 +235,63 @@ class _HistoryScreenState extends State<HistoryScreen> {
  }
 
  // Mostrar filtro de período
- void _showPeriodFilter() {
-   showModalBottomSheet(
-     context: context,
-     shape: const RoundedRectangleBorder(
-       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-     ),
-     builder: (context) {
-       return Container(
-         padding: const EdgeInsets.all(16),
-         child: Column(
-           mainAxisSize: MainAxisSize.min,
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
-             const Text(
-               'Seleccionar período',
-               style: TextStyle(
-                 fontSize: 18,
-                 fontWeight: FontWeight.bold,
-               ),
-             ),
-             const SizedBox(height: 16),
-             ...(_periodOptions.map((period) => ListTile(
-               title: Text(period),
-               trailing: _selectedPeriod == period 
-                 ? const Icon(Icons.check, color: Color(0xFF1530AE))
-                 : null,
-               onTap: () {
-                 setState(() {
-                   _selectedPeriod = period;
-                 });
-                 Navigator.pop(context);
-               },
-             ))),
-           ],
-         ),
-       );
-     },
-   );
- }
+  void _showPeriodFilter() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: true, // ← Agregado para evitar overflow
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.6, // ← Limitar altura
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Seleccionar período',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Envolver en Flexible para evitar overflow
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true, // ← Importante para evitar overflow
+                  itemCount: _periodOptions.length,
+                  itemBuilder: (context, index) {
+                    final period = _periodOptions[index];
+                    return ListTile(
+                      title: Text(
+                        period,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      trailing: _selectedPeriod == period 
+                        ? const Icon(Icons.check, color: Color(0xFF1530AE))
+                        : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedPeriod = period;
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+ // termina
 
  // Mostrar filtros avanzados
  void _showAdvancedFilters() {

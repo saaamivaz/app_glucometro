@@ -118,71 +118,82 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text(
-            'Tipo de medición',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '¿Cuándo realizas esta medición?',
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.maxFinite,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.of(context).pop('ayuno'),
-                  icon: const Icon(Icons.breakfast_dining, color: Colors.white),
-                  label: const Text(
-                    'En ayuno',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Tipo de medición',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1530AE),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '¿Cuándo realizas esta medición?',
+                  style: TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pop('ayuno'),
+                    icon: const Icon(Icons.breakfast_dining, color: Colors.white),
+                    label: const Text(
+                      'En ayuno',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1530AE),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.maxFinite,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.of(context).pop('posprandial'),
-                  icon: const Icon(Icons.restaurant, color: Colors.white),
-                  label: const Text(
-                    'Después de comer',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1530AE),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pop('posprandial'),
+                    icon: const Icon(Icons.restaurant, color: Colors.white),
+                    label: const Text(
+                      'Después de comer',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1530AE),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
   }
+  // termina
 
 
   // Cargar datos del usuario desde Firebase
@@ -240,80 +251,174 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('Conexión Bluetooth'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!_isBluetoothConnected)
-                  Column(
-                    children: [
-                      if (!_isScanning)
-                        ElevatedButton(
-                          onPressed: () => _startBleScan(setState),
-                          child: const Text('Buscar dispositivos'),
-                        ),
-                      if (_isScanning)
-                        const LinearProgressIndicator(),
-                      ..._discoveredDevices
-                          .where((device) => device.name.isNotEmpty)
-                          .map((device) => ListTile(
-                                title: Text(device.name),
-                                subtitle: Text(device.id),
-                                onTap: () => _connectToDevice(device, setState),
-                              )),
-                    ],
-                  ),
-                
-                if (_isBluetoothConnecting)
-                  const CircularProgressIndicator(),
-
-                if (_isBluetoothConnected)
-                  Column(
-                    children: [
-                      const Icon(Icons.bluetooth_connected, color: Colors.blue),
-                      const SizedBox(height: 16),
-                      const Text('Dispositivo conectado'),
-                      const SizedBox(height: 8),
-                      const Text('Coloca tu dedo cuando el LED esté en verde'),
-                      const SizedBox(height: 16),
-                      // Nuevo
-                      ElevatedButton(
-                        onPressed: () async {
-                          // No cerrar el diálogo todavía
-                          final navigator = Navigator.of(context);
-                          final measurementType = await _showMeasurementTypeDialog();
-                          
-                          if (measurementType != null) {
-                            // Ahora sí cerrar el diálogo de Bluetooth
-                            navigator.pop();
-                            
-                            // Ejecutar la medición
-                            _performMeasurementWithType(measurementType);
-                          }
-                        },
-                        child: const Text('Iniciar medición'),
-                      ),
-
-                      // termina
-                    ],
-                  ),
-              ],
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  _disconnectDevice();
-                  Navigator.pop(context);
-                },
-                child: const Text('Cancelar'),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.7, // ← Limitar altura
+                maxWidth: MediaQuery.of(context).size.width * 0.9,   // ← Limitar ancho
               ),
-            ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Título
+                  const Text(
+                    'Conexión Bluetooth',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Contenido principal - Envuelto en Flexible
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!_isBluetoothConnected)
+                            Column(
+                              children: [
+                                if (!_isScanning)
+                                  ElevatedButton(
+                                    onPressed: () => _startBleScan(setState),
+                                    child: const Text('Buscar dispositivos'),
+                                  ),
+                                if (_isScanning)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 20),
+                                    child: Column(
+                                      children: [
+                                        CircularProgressIndicator(),
+                                        SizedBox(height: 8),
+                                        Text('Buscando dispositivos...'),
+                                      ],
+                                    ),
+                                  ),
+                                
+                                // Lista de dispositivos - Con altura limitada
+                                if (_discoveredDevices.isNotEmpty)
+                                  Container(
+                                    height: 200, // ← Altura fija para evitar overflow
+                                    margin: const EdgeInsets.symmetric(vertical: 10),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ListView.builder(
+                                      itemCount: _discoveredDevices
+                                          .where((device) => device.name.isNotEmpty)
+                                          .length,
+                                      itemBuilder: (context, index) {
+                                        final devices = _discoveredDevices
+                                            .where((device) => device.name.isNotEmpty)
+                                            .toList();
+                                        final device = devices[index];
+                                        
+                                        return ListTile(
+                                          title: Text(
+                                            device.name,
+                                            overflow: TextOverflow.ellipsis, // ← Evitar overflow
+                                          ),
+                                          subtitle: Text(
+                                            device.id,
+                                            overflow: TextOverflow.ellipsis, // ← Evitar overflow
+                                          ),
+                                          onTap: () => _connectToDevice(device, setState),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          
+                          if (_isBluetoothConnecting)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Column(
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 8),
+                                  Text('Conectando...'),
+                                ],
+                              ),
+                            ),
+
+                          if (_isBluetoothConnected)
+                            Column(
+                              children: [
+                                const Icon(Icons.bluetooth_connected, 
+                                  color: Colors.blue, size: 48),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Dispositivo conectado',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Coloca tu dedo cuando el LED esté en verde',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () async {
+                                      final navigator = Navigator.of(context);
+                                      final measurementType = await _showMeasurementTypeDialog();
+                                      
+                                      if (measurementType != null) {
+                                        navigator.pop();
+                                        _performMeasurementWithType(measurementType);
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1530AE),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    child: const Text('Iniciar medición'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Botones de acción
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          _disconnectDevice();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Cancelar'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),
     );
   }
+
+  //termina
 
   void _startBleScan(void Function(void Function()) setState) async {
     setState(() => _isScanning = true);
