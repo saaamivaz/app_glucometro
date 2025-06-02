@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "254115885542",
+    "firebase_url": "https://glucometro-app-default-rtdb.firebaseio.com",
+    "project_id": "glucometro-app",
+    "storage_bucket": "glucometro-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:254115885542:android:8ce98dc47f90c8f27f2627",
+        "android_client_info": {
+          "package_name": "com.example.app_glucometro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoEPrDrfKHWF-QOlnkdGXXb7a1VqfD0lc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,1 @@
+{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"glucometro-app","configurations":{"android":"1:254115885542:android:8ce98dc47f90c8f27f2627","ios":"1:254115885542:ios:b1b3c77463e27f517f2627"}}},"android":{"default":{"projectId":"glucometro-app","appId":"1:254115885542:android:8ce98dc47f90c8f27f2627","fileOutput":"android/app/google-services.json"}}}}}
