@@ -388,7 +388,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _pesoController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: '--',
+                    hintText: 'kg',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(color: Colors.grey.shade300),
@@ -418,7 +418,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _alturaController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: '--',
+                    hintText: 'cm',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(color: Colors.grey.shade300),
