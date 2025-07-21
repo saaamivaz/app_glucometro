@@ -15,6 +15,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> { 
+
+  // Variables para el contador reactivo
+  Map<String, bool> _weeklyReadings = {};
+  StreamSubscription<DatabaseEvent>? _readingsSubscription;
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
   final FlutterReactiveBle _ble = FlutterReactiveBle();
@@ -32,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic> _userData = {};
   
   // Datos de glucosa
-  int _glucoseValue = 75;
+  String _glucoseValue = "-";
   String _dateTime = "";
   
   // Estado de conexión Bluetooth
@@ -40,9 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isBluetoothConnecting = false;
   
   Timer? _timer;
-
-  // Datos simulados para las mediciones diarias
-  final List<bool> _dailyReadings = [true, true, true, false, false, false, false];
   
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
     _loadLatestMeasurement();
     _updateDateTime();
+    _loadWeeklyReadings(); // Cargar mediciones semanales
 
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       _updateDateTime();
@@ -58,19 +61,101 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    // Cancelar el temporizador al destruir el widget
     _timer?.cancel();
+    _readingsSubscription?.cancel(); // Cancelar suscripción
     super.dispose();
   }
 
-  // inicia
+  // Método para cargar las mediciones semanales
+  Future<void> _loadWeeklyReadings() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    // Calcular fecha de inicio de semana (último domingo)
+    final now = DateTime.now();
+    final startOfWeek = _getStartOfWeek(now);
+    final startTimestamp = startOfWeek.millisecondsSinceEpoch;
+
+    // Escuchar cambios en las lecturas de la semana actual
+    _readingsSubscription = _database
+        .child('users/${user.uid}/readings')
+        .orderByChild('timestamp')
+        .startAt(startTimestamp)
+        .onValue
+        .listen((DatabaseEvent event) {
+      _processWeeklyReadings(event.snapshot);
+    });
+  }
+
+  // Método para obtener el inicio de la semana (domingo)
+  DateTime _getStartOfWeek(DateTime date) {
+    final daysFromSunday = date.weekday % 7;
+    final startOfWeek = DateTime(date.year, date.month, date.day)
+        .subtract(Duration(days: daysFromSunday));
+    return startOfWeek;
+  }
+
+  // Procesar las mediciones de la semana
+  void _processWeeklyReadings(DataSnapshot snapshot) {
+    final Map<String, bool> weeklyData = {};
+    
+    // Inicializar todos los días como false
+    for (int i = 0; i < 7; i++) {
+      final date = _getStartOfWeek(DateTime.now()).add(Duration(days: i));
+      final dateKey = _formatDateKey(date);
+      weeklyData[dateKey] = false;
+    }
+
+    if (snapshot.exists && snapshot.value != null) {
+      final readings = Map<String, dynamic>.from(snapshot.value as Map);
+      
+      readings.forEach((key, value) {
+        final reading = Map<String, dynamic>.from(value);
+        final timestamp = reading['timestamp'] as int?;
+        
+        if (timestamp != null) {
+          final readingDate = DateTime.fromMillisecondsSinceEpoch(timestamp);
+          final dateKey = _formatDateKey(readingDate);
+          
+          // Marcar el día como completado si hay al menos una medición
+          if (weeklyData.containsKey(dateKey)) {
+            weeklyData[dateKey] = true;
+          }
+        }
+      });
+    }
+
+    // Actualizar el estado
+    if (mounted) {
+      setState(() {
+        _weeklyReadings = weeklyData;
+      });
+    }
+  }
+
+  // Formatear fecha como clave (YYYY-MM-DD)
+  String _formatDateKey(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  // Obtener el estado de medición para un día específico
+  bool _hasReadingForDay(int dayIndex) {
+    final date = _getStartOfWeek(DateTime.now()).add(Duration(days: dayIndex));
+    final dateKey = _formatDateKey(date);
+    return _weeklyReadings[dateKey] ?? false;
+  }
+
+  // Contar mediciones completadas en la semana
+  int _getCompletedReadingsCount() {
+    return _weeklyReadings.values.where((hasReading) => hasReading).length;
+  }
+
+  // Realizar medición con tipo específico
   void _performMeasurementWithType(String measurementType) {
     if (_glucoseCharacteristic == null) return;
 
-    // Guardar el tipo de medición
     _currentMeasurementType = measurementType;
 
-    // Enviar comando al ESP32
     _ble.writeCharacteristicWithResponse(
       _glucoseCharacteristic!,
       value: Uint8List.fromList([0x01]),
@@ -82,25 +167,16 @@ class _HomeScreenState extends State<HomeScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
-    
-    //print("Comando 0x01 enviado al ESP32 para medición $measurementType");
   }
 
-
-  // termina
-  
   void _updateDateTime(){
-    // Obtener la fecha y hora actual
     final now = DateTime.now().toUtc().add(const Duration(hours: -6));
-     // Formatear la fecha en español
     final dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     final monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     
-    // Ajustar el índice del día de la semana (DateTime usa 1-7 con 1=lunes, pero necesitamos el índice correcto para nuestro array)
     final dayIndex = now.weekday - 1;
     final day = dayNames[dayIndex];
     
-    // Formatear fecha y hora
     final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
     final amPm = now.hour >= 12 ? 'pm' : 'am';
     final minute = now.minute.toString().padLeft(2, '0');
@@ -108,9 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _dateTime = "$day ${now.day} ${monthNames[now.month - 1]} a las $hour:$minute $amPm";
     });
-
   }
-
 
   // Mostrar diálogo para seleccionar tipo de medición
   Future<String?> _showMeasurementTypeDialog() async {
@@ -193,8 +267,6 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-  // termina
-
 
   // Cargar datos del usuario desde Firebase
   Future<void> _loadUserData() async {
@@ -208,16 +280,14 @@ class _HomeScreenState extends State<HomeScreen> {
             _userName = _userData['nombre'] ?? "Usuario";
             _userLastName = _userData['apellido'] ?? "";
           });
-          
-          //print('Datos del usuario cargados: $_userData');
         }
       }
     } catch (e) {
-      //print('Error al cargar los datos del usuario: $e');
+      debugPrint('Error al cargar los datos del usuario: $e');
     }
   }
   
-  // Cargar la última medición desde Firebase (simulado por ahora)
+  // Cargar la última medición desde Firebase
   Future<void> _loadLatestMeasurement() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -233,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final latest = data.values.first;
       
       setState(() {
-        _glucoseValue = (latest['value'] as num).toInt();
+        _glucoseValue = (latest['value'] as num).toString();
         _dateTime = _formatDate(latest['timestamp']);
       });
     }
@@ -258,13 +328,12 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.all(20),
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.7, // ← Limitar altura
-                maxWidth: MediaQuery.of(context).size.width * 0.9,   // ← Limitar ancho
+                maxHeight: MediaQuery.of(context).size.height * 0.7,
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Título
                   const Text(
                     'Conexión Bluetooth',
                     style: TextStyle(
@@ -274,7 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Contenido principal - Envuelto en Flexible
                   Flexible(
                     child: SingleChildScrollView(
                       child: Column(
@@ -300,10 +368,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                 
-                                // Lista de dispositivos - Con altura limitada
                                 if (_discoveredDevices.isNotEmpty)
                                   Container(
-                                    height: 200, // ← Altura fija para evitar overflow
+                                    height: 200,
                                     margin: const EdgeInsets.symmetric(vertical: 10),
                                     decoration: BoxDecoration(
                                       border: Border.all(color: Colors.grey.shade300),
@@ -322,11 +389,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                         return ListTile(
                                           title: Text(
                                             device.name,
-                                            overflow: TextOverflow.ellipsis, // ← Evitar overflow
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                           subtitle: Text(
                                             device.id,
-                                            overflow: TextOverflow.ellipsis, // ← Evitar overflow
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                           onTap: () => _connectToDevice(device, setState),
                                         );
@@ -395,7 +462,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   
-                  // Botones de acción
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -418,28 +484,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  //termina
-
   void _startBleScan(void Function(void Function()) setState) async {
     setState(() => _isScanning = true);
     _discoveredDevices.clear();
     
-    // Verificar y solicitar permisos
     await _checkPermissions();
     
     try {
       _scanSubscription?.cancel();
       _scanSubscription = _ble.scanForDevices(withServices: []).listen(
         (device) {
-          
-          // Agrega todos los dispositivos, incluso sin nombre
           final bool deviceAlreadyFound = _discoveredDevices.any((d) => d.id == device.id);
           if (!deviceAlreadyFound) {
             setState(() => _discoveredDevices.add(device));
           }
         },
         onError: (e) {
-          //print('Error en escaneo BLE: $e');
           setState(() => _isScanning = false);
         },
         onDone: () {
@@ -447,7 +507,6 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       );
       
-      // Detener el escaneo después de 15 segundos si no se detiene antes
       Future.delayed(const Duration(seconds: 15), () {
         if (_isScanning) {
           _scanSubscription?.cancel();
@@ -455,20 +514,18 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       });
     } catch (e) {
-      //print('Error iniciando escaneo BLE: $e');
       setState(() => _isScanning = false);
     }
   }
 
   Future<void> _checkPermissions() async {
-    // Verificar estado del BLE
     final bleStatus = _ble.status;
     
     if (bleStatus != BleStatus.ready) {
       await Permission.location.request();
       await Permission.bluetooth.request();
-      await Permission.bluetoothConnect.request(); // Para Android 12+
-      await Permission.bluetoothScan.request(); // Para Android 12+
+      await Permission.bluetoothConnect.request();
+      await Permission.bluetoothScan.request();
     }
   }
 
@@ -487,20 +544,17 @@ class _HomeScreenState extends State<HomeScreen> {
           _ble.subscribeToCharacteristic(_glucoseCharacteristic!).listen((data) {
             final reading = String.fromCharCodes(data);
             if (reading.startsWith("GLUCOSE:")) {
-            
               try {
                 final value = double.tryParse(reading.split(":")[1].trim()) ?? 0.0;
-                //print("Valor de glucosa recibido: $value mg/dL");
                 
-                // Aquí usamos setState del HomeScreen, no del diálogo
                 if (mounted) {
                   setState(() {
-                    _glucoseValue = value.toInt();
+                    _glucoseValue = value.toString();
                   });
-                  _saveToFirebase(value); // Llamamos a saveToFirebase fuera de setState
+                  _saveToFirebase(value);
                 }
               } catch (e) {
-                //print("Error procesando lectura: $e");
+                debugPrint("Error procesando lectura: $e");
               }
             }
           });
@@ -510,18 +564,16 @@ class _HomeScreenState extends State<HomeScreen> {
             _isBluetoothConnected = true;
           });
           
-          // Actualizar también el estado del widget principal
           setState(() {
             _isBluetoothConnected = true;
           });
-      }
-    },
-    onError: (error) {
-      //print("Error de conexión: $error");
-      _disconnectDevice();
-      dialogSetState(() {
-        _isBluetoothConnecting = false;
-      });
+        }
+      },
+      onError: (error) {
+        _disconnectDevice();
+        dialogSetState(() {
+          _isBluetoothConnecting = false;
+        });
       },
     );
   }
@@ -536,7 +588,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  //
   Future<void> _saveToFirebase(double glucoseLevel) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -546,55 +597,48 @@ class _HomeScreenState extends State<HomeScreen> {
       'timestamp': ServerValue.timestamp,
       'unit': 'mg/dL',
       'device': 'Bluetooth',
-      'measurementType': _currentMeasurementType ?? 'no_especificado', // Nuevo campo
-      'status': _getGlucoseStatus(glucoseLevel, _currentMeasurementType ?? 'ayuno'), // Nuevo campo
+      'measurementType': _currentMeasurementType ?? 'no_especificado',
+      'status': _getGlucoseStatus(glucoseLevel, _currentMeasurementType ?? 'ayuno'),
     };
 
     await _database.child('users/${user.uid}/readings').push().set(measurementData);
     
-    // Limpiar el tipo de medición actual
     _currentMeasurementType = null;
     
     setState(() {
-      _glucoseValue = glucoseLevel.toInt();
+      _glucoseValue = glucoseLevel.toString();
       _updateDateTime();
     });
+    // El contador se actualiza automáticamente gracias al StreamSubscription
   }
 
-  // Método para determinar el estado de la glucosa según el tipo de medición
   String _getGlucoseStatus(double glucose, String type) {
     if (type == 'ayuno') {
       if (glucose < 70) return 'Bajo';
       if (glucose <= 100) return 'Normal';
       if (glucose <= 125) return 'Alto';
       return 'Diabetes';
-    } else { // posprandial
+    } else {
       if (glucose < 70) return 'Bajo';
       if (glucose <= 140) return 'Normal';
       if (glucose <= 199) return 'Alto';
       return 'Diabetes';
     }
   }
-  
-  // Modificar _performMeasurement para incluir el tipo de medición
 
-  // termina
+  void _goToHistory() {
+    Navigator.pushNamed(context, '/history');
+  }
     
-    // Navegar a la pantalla de historial
-    void _goToHistory() {
-      Navigator.pushNamed(context, '/history');
+  void _signOut() async {
+    final navigator = Navigator.of(context);
+    try {
+      await _auth.signOut();
+      navigator.pushReplacementNamed('/');
+    } catch (e) {
+      debugPrint('Error al cerrar sesión: $e');
     }
-    
-    // Cerrar sesión
-    void _signOut() async {
-      final navigator = Navigator.of(context);
-      try {
-        await _auth.signOut();
-        navigator.pushReplacementNamed('/');
-      } catch (e) {
-        debugPrint('Error al cerrar sesión: $e'); //print('Error al cerrar sesión: $e');
-      }
-    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -603,6 +647,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF1A1F71)),
@@ -617,12 +662,10 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Perfil de usuario
               _buildUserProfile(),
               
               const SizedBox(height: 16),
               
-              // Fecha y hora
               Center(
                 child: Text(
                   _dateTime,
@@ -635,7 +678,6 @@ class _HomeScreenState extends State<HomeScreen> {
               
               const SizedBox(height: 16),
               
-              // Etiqueta Glucosa
               const Text(
                 'Glucosa',
                 style: TextStyle(
@@ -655,7 +697,6 @@ class _HomeScreenState extends State<HomeScreen> {
               
               const SizedBox(height: 24),
               
-              // Círculo con valor de glucosa
               Center(
                 child: Container(
                   width: 200,
@@ -680,69 +721,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               
-              const SizedBox(height: 24),
+              const SizedBox(height: 40),
               
-              
-              const SizedBox(height: 16),
-              
-              // Mediciones diarias
-              const Text(
-                'Mediciones diarias',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1F71),
-                ),
-              ),
-              
-              const Text(
-                'Últimos 7 días',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Indicadores de días
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildDayIndicator(0, 'D'),
-                  _buildDayIndicator(1, 'L'),
-                  _buildDayIndicator(2, 'M'),
-                  _buildDayIndicator(3, 'M'),
-                  _buildDayIndicator(4, 'J'),
-                  _buildDayIndicator(5, 'V'),
-                  _buildDayIndicator(6, 'S'),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Contador de días
-              Row(
-                children: [
-                  Text(
-                    '${_dailyReadings.where((day) => day).length}/7',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-              
-              const Text(
-                'Logrado',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
+              // *** AQUÍ ESTÁ EL CAMBIO PRINCIPAL ***
+              // Mediciones diarias reactivas
+              _buildWeeklyProgress(),
             ],
           ),
         ),
@@ -751,7 +734,72 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Construye la barra de navegación inferior
+  // *** NUEVO MÉTODO PARA CONSTRUIR EL PROGRESO SEMANAL ***
+  Widget _buildWeeklyProgress() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Mediciones diarias',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A1F71),
+          ),
+        ),
+        
+        const Text(
+          'Últimos 7 días',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Indicadores de días
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildDayIndicator(0, 'D'),
+            _buildDayIndicator(1, 'L'),
+            _buildDayIndicator(2, 'M'),
+            _buildDayIndicator(3, 'M'),
+            _buildDayIndicator(4, 'J'),
+            _buildDayIndicator(5, 'V'),
+            _buildDayIndicator(6, 'S'),
+          ],
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Contador de días REACTIVO
+        Row(
+          children: [
+            Text(
+              '${_getCompletedReadingsCount()}/7',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+            ),
+            const Spacer(),
+          ],
+        ),
+        
+        const Text(
+          'Logrado',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
@@ -767,15 +815,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // Botón de inicio
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
                   icon: const Icon(Icons.home),
-                  onPressed: () {
-                    // Ya estamos en la pantalla de inicio
-                  },
+                  onPressed: () {},
                   color: Colors.grey,
                 ),
                 const Text(
@@ -785,7 +830,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             
-            // Botón de nueva medición
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -807,7 +851,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             
-            // Botón de historial
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -828,9 +871,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  // Construye un indicador de día para las mediciones diarias
+  // *** MÉTODO MODIFICADO PARA USAR DATOS REACTIVOS ***
   Widget _buildDayIndicator(int index, String day) {
-    final bool hasReading = _dailyReadings[index];
+    final bool hasReading = _hasReadingForDay(index);
     
     return Column(
       children: [
@@ -865,7 +908,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  // Construye el perfil de usuario
   Widget _buildUserProfile() {
     return Row(
       children: [
